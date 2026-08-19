@@ -1,0 +1,5 @@
+if [ -z "${2-}" ]; then
+  exec < /dev/tty && bunx --bun cz --hook || true
+fi
+
+bunx --bun devmoji -e --lint || true

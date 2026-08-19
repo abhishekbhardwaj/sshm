@@ -1,0 +1,11 @@
+{
+  "path": "./node_modules/commitizen-emoji",
+  "config": {
+    "commitizenEmoji": {
+      "conventionalFormat": true,
+      "usePack": "conventional",
+      "symbol": true,
+      "skipQuestions": ["body", "breaking", "issues"]
+    }
+  }
+}

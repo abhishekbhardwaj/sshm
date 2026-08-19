@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-linux-x64
+            os: ubuntu-latest
+            artifact: sshm-linux-x64
+          - target: bun-linux-x64-baseline
+            os: ubuntu-latest
+            artifact: sshm-linux-x64-baseline
+          - target: bun-linux-arm64
+            os: ubuntu-latest
+            artifact: sshm-linux-arm64
+          - target: bun-darwin-x64
+            os: ubuntu-latest
+            artifact: sshm-darwin-x64
+          - target: bun-darwin-arm64
+            os: ubuntu-latest
+            artifact: sshm-darwin-arm64
+          - target: bun-windows-x64
+            os: windows-latest
+            artifact: sshm-windows-x64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --os="*" --cpu="*"
+
+      - name: Build executable
+        run: |
+          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
+          VERSION=${VERSION#v}
+          bun build --compile --minify --sourcemap --target=${{ matrix.target }} --define SSHM_VERSION="\"$VERSION\"" src/index.ts --outfile ${{ matrix.artifact }}
+        shell: bash
+
+      - name: Test executable
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ] || [[ "${{ matrix.target }}" == bun-linux-x64* ]]; then
+            ./${{ matrix.artifact }} --version
+          else
+            echo "Cross-compiled ${{ matrix.target }}; validating executable format"
+            file ${{ matrix.artifact }}
+          fi
+        shell: bash
+
+      - name: Create tarball (Unix)
+        if: runner.os != 'Windows' && success()
+        run: |
+          if [ -f "${{ matrix.artifact }}" ]; then
+            tar -czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
+            if [ "$RUNNER_OS" == "macOS" ]; then
+              shasum -a 256 ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+            else
+              sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+            fi
+          else
+            echo "Binary ${{ matrix.artifact }} not found, skipping tarball creation"
+          fi
+        shell: bash
+
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows' && success()
+        run: |
+          if exist "${{ matrix.artifact }}" (
+            7z a ${{ matrix.artifact }}.zip ${{ matrix.artifact }}
+            certutil -hashfile ${{ matrix.artifact }}.zip SHA256 > ${{ matrix.artifact }}.zip.sha256
+          ) else (
+            echo Binary ${{ matrix.artifact }} not found, skipping zip creation
+          )
+        shell: cmd
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}*
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          if [ -d "artifacts" ]; then
+            find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" \) -exec cp {} release-assets/ \; 2>/dev/null || true
+          fi
+          echo "Available release assets:"
+          ls -la release-assets/ || echo "No release assets found"
+
+          ASSET_COUNT=$(find release-assets -type f \( -name "*.tar.gz" -o -name "*.zip" \) | wc -l)
+          echo "Found $ASSET_COUNT binary assets"
+          test "$ASSET_COUNT" -eq 6
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## Downloads
+
+          **Linux:**
+          - `sshm-linux-x64.tar.gz` - Standard x64 build
+          - `sshm-linux-x64-baseline.tar.gz` - Compatible with older x64 CPUs
+          - `sshm-linux-arm64.tar.gz` - ARM64 build
+
+          **macOS:**
+          - `sshm-darwin-x64.tar.gz` - Intel Macs
+          - `sshm-darwin-arm64.tar.gz` - Apple Silicon Macs
+
+          **Windows:**
+          - `sshm-windows-x64.exe.zip` - Standard x64 build
+
+          ## Installation
+
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/abhishekbhardwaj/sshm/main/scripts/install.sh | bash
+          ```
+
+          SHA-256 checksum files are included with every archive.
+          EOF
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          name: Release ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

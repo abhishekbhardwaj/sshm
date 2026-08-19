@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun audit
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build
+      - name: Install OpenSSH server
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes openssh-server
+          sudo install -d -m 0755 /run/sshd
+      - name: Run OpenSSH E2E tests
+        run: bun test --timeout 20000 ./test/e2e/cli.e2e.ts

@@ -56,8 +56,8 @@ export function FormModal<Field extends string>({
   if (!activeTab) throw new SshmError(`No form tab contains ${activeField}.`);
 
   return (
-    <Modal title={title}>
-      <box style={{ height: 3, flexDirection: "row", gap: compact ? 0 : 1 }}>
+    <Modal title={title} maxWidth={68}>
+      <box style={{ height: 1, flexDirection: "row", gap: 1 }}>
         {tabs.map((tab) => (
           <FormTab
             key={tab.label}

@@ -1,4 +1,8 @@
-/** Renders a selectable form tab using the shared active-state treatment. */
+/**
+ * Renders the form's labeled tab presentation.
+ * Selected-state treatment follows the MIT Tuiparts Tabs recipe:
+ * https://github.com/tuiparts/tuiparts/blob/main/registry/tabs/react.tsx
+ */
 import { theme } from "./theme.ts";
 
 export type FormTabProps = {
@@ -11,11 +15,9 @@ export function FormTab({ label, active, onPress }: FormTabProps) {
   return (
     <box
       style={{
-        height: 3,
+        height: 1,
         flexGrow: 1,
-        border: true,
-        borderColor: active ? theme.accent : theme.border,
-        backgroundColor: active ? theme.accent : theme.modal,
+        backgroundColor: active ? theme.accent : theme.background,
         alignItems: "center",
         justifyContent: "center",
       }}

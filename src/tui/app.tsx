@@ -33,6 +33,7 @@ import {
 import { FormModal } from "../ui/form-modal.tsx";
 import { atLeast, below } from "../ui/responsive.ts";
 import { theme } from "../ui/theme.ts";
+import { checkForUpdatesHourly, type UpdateInfo } from "../update.ts";
 import { ActionBar, type ActionBarItem } from "./action-bar.tsx";
 import { BrandHeader } from "./brand-header.tsx";
 import { DeleteModal } from "./delete-modal.tsx";
@@ -54,15 +55,17 @@ import { ReviewModal } from "./review-modal.tsx";
 import { SearchBox } from "./search-box.tsx";
 import { shortcutActionLabel, shortcutHint, shortcutKey } from "./shortcuts.ts";
 import type { HostFormMode, Mode } from "./types.ts";
+import { UpdateModal } from "./update-modal.tsx";
 import { usePings } from "./use-pings.ts";
 
 type AppProps = {
   configPath: string;
+  currentVersion: string;
   initialState: HostState;
-  finish: (host: Host | null) => void;
+  finish: (result: Host | "update" | null) => void;
 };
 
-export function App({ configPath, initialState, finish }: AppProps) {
+export function App({ configPath, currentVersion, initialState, finish }: AppProps) {
   const { width } = useTerminalDimensions();
   const compact = below(width, "md");
   const [hostState, setHostState] = useState(initialState);
@@ -70,6 +73,7 @@ export function App({ configPath, initialState, finish }: AppProps) {
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<HostSort>("default");
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [details, setDetails] = useState<ResolvedConfig>({ entries: [], values: {} });
   const [form, setForm] = useState(emptyHostForm);
   const hostList = useRef<ScrollBoxRenderable | null>(null);
@@ -94,6 +98,21 @@ export function App({ configPath, initialState, finish }: AppProps) {
     retainPings(next.hosts);
     setSelected(0);
   }, [configPath, retainPings]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    void checkForUpdatesHourly(currentVersion, { signal: controller.signal })
+      .then((update) => {
+        if (active && update.hasUpdate) setAvailableUpdate(update);
+      })
+      // Update checks are advisory; offline use must remain silent and fully functional.
+      .catch(() => {});
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [currentVersion]);
 
   useEffect(() => {
     const watcher = watchConfig(watchKey.split("\u0000"), () => {
@@ -286,6 +305,9 @@ export function App({ configPath, initialState, finish }: AppProps) {
     if (selectedHost) ping([selectedHost]);
   };
   const pingAll = () => ping(hosts);
+  const startUpdate = () => {
+    if (availableUpdate) setMode({ kind: "update", update: availableUpdate });
+  };
   const cancelSearch = () => {
     setQuery("");
     setSelected(0);
@@ -314,12 +336,14 @@ export function App({ configPath, initialState, finish }: AppProps) {
     edit: () => startEdit("alias"),
     metadata: () => startEdit("tags"),
     delete: startDelete,
+    update: startUpdate,
     help: () => setMode({ kind: "help" }),
     quit: () => finish(null),
     cancelSearch,
     saveForm: () => void saveForm(),
     confirmReview: () => void confirmReview(),
     confirmDelete: () => void confirmDelete(),
+    confirmUpdate: () => finish("update"),
   };
 
   const checked = Object.values(pings);
@@ -373,6 +397,15 @@ export function App({ configPath, initialState, finish }: AppProps) {
       disabled: !selectedHost,
       danger: true,
     },
+    ...(availableUpdate
+      ? [
+          {
+            shortcut: "update" as const,
+            title: `Update ${availableUpdate.latestVersion}`,
+            onPress: keyboardCommands.update,
+          },
+        ]
+      : []),
     { shortcut: "help", title: "Help", onPress: keyboardCommands.help },
     { shortcut: "quit", title: "Quit", onPress: keyboardCommands.quit },
   ];
@@ -470,6 +503,13 @@ export function App({ configPath, initialState, finish }: AppProps) {
         />
       )}
       {mode.kind === "help" && <HelpModal width={width} onClose={closeOverlay} />}
+      {mode.kind === "update" && (
+        <UpdateModal
+          update={mode.update}
+          onUpdate={() => finish("update")}
+          onLater={closeOverlay}
+        />
+      )}
       {mode.kind === "delete" && (
         <DeleteModal
           alias={mode.host.alias}

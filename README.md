@@ -2,6 +2,8 @@
 
 `sshm` is a small SSH host manager for people who live in the terminal. It gives your `~/.ssh/config` a keyboard-first UI without taking ownership of SSH: OpenSSH still resolves config, authenticates, connects, and handles forwarding.
 
+![sshm host browser showing aliases, hostnames, tags, recent use, notes, and reachability](assets/screenshots/sshm.webp)
+
 ## Install
 
 ```sh
@@ -29,9 +31,32 @@ sshm
 sshm --config /tmp/sshm-config
 ```
 
-The main things you can do there are straightforward: search hosts, connect, inspect the effective OpenSSH settings, check whether a host is reachable, and add, edit, or delete a concrete `Host` block. You can also keep tags, notes, favourites, and recent connections. That extra information belongs to sshm, not your SSH config.
+### Browse and search
+
+Search aliases, hostnames, tags, and notes from the host list, then connect or check reachability without leaving the keyboard.
+
+<p align="center">
+  <img src="assets/screenshots/sshm_filter.webp" width="560" alt="sshm search mode filtering the host list with the query prod">
+</p>
+
+### Add, edit, and inspect
+
+Add, edit, or delete a concrete `Host` block, and inspect the effective settings resolved by `ssh -G`. You can also keep tags, notes, favourites, and recent connections. That extra information belongs to sshm, not your SSH config.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/ssh_form.webp" alt="Add SSH host form with Target, Auth, and Metadata tabs"></td>
+    <td width="50%"><img src="assets/screenshots/ssh_more_info.webp" alt="OpenSSH inspector showing resolved settings for prod-bastion-1"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Guided host form</strong></td>
+    <td align="center"><strong>Effective OpenSSH settings</strong></td>
+  </tr>
+</table>
 
 Changes to SSH config always show a diff before sshm writes anything. Passwords and key passphrases never go into sshm; OpenSSH asks for them when it needs them.
+
+On startup, sshm checks for an update in the background, reusing the result for one hour. If an update is available, a `u Update` action appears; sshm installs nothing until you open it and confirm.
 
 ### Keyboard controls
 
@@ -48,6 +73,7 @@ Changes to SSH config always show a diff before sshm writes anything. Passwords 
 | `o` | Edit its metadata |
 | `n` | Add a host |
 | `d` | Delete a host |
+| `u` | Review an available update |
 | `h` | Show help |
 | `q` | Quit or close a modal |
 

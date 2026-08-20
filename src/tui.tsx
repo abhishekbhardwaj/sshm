@@ -4,25 +4,33 @@ import { createRoot } from "@opentui/react";
 import { loadHostState, recordConnection, type Host } from "./hosts.ts";
 import { connect } from "./openssh.ts";
 import { App } from "./tui/app.tsx";
+import { performSelfUpdate } from "./update.ts";
 
-/** Runs one TUI session and returns the eventual SSH process exit code. */
-export async function runTui(configPath: string): Promise<number> {
+/** Runs one TUI session and returns the eventual SSH or update process exit code. */
+export async function runTui(configPath: string, currentVersion: string): Promise<number> {
   const initialState = await loadHostState(configPath);
   const renderer = await createCliRenderer({ exitOnCtrlC: true });
   const root = createRoot(renderer);
-  let selected: Host | null;
+  let result: Host | "update" | null;
   try {
-    selected = await new Promise<Host | null>((resolve) => {
+    result = await new Promise<Host | "update" | null>((resolve) => {
       // Renderer destruction and a user action may happen in the same tick;
       // settling once keeps shutdown deterministic.
       let finished = false;
-      const finish = (host: Host | null) => {
+      const finish = (result: Host | "update" | null) => {
         if (finished) return;
         finished = true;
-        resolve(host);
+        resolve(result);
       };
       renderer.once("destroy", () => finish(null));
-      root.render(<App configPath={configPath} initialState={initialState} finish={finish} />);
+      root.render(
+        <App
+          configPath={configPath}
+          currentVersion={currentVersion}
+          initialState={initialState}
+          finish={finish}
+        />,
+      );
     });
   } finally {
     try {
@@ -31,8 +39,12 @@ export async function runTui(configPath: string): Promise<number> {
       if (!renderer.isDestroyed) renderer.destroy();
     }
   }
-  if (!selected) return 0;
+  if (!result) return 0;
+  if (result === "update") {
+    await performSelfUpdate();
+    return 0;
+  }
 
-  await recordConnection(selected);
-  return connect(selected.alias, selected.rootConfigPath);
+  await recordConnection(result);
+  return connect(result.alias, result.rootConfigPath);
 }

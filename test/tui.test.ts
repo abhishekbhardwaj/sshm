@@ -47,14 +47,18 @@ test("resolves contextual commands from the canonical shortcut registry", () => 
   // Given
   const selectedPing = key("p");
   const allPings = key("p", { shift: true });
+  const update = key("u");
 
   // When
   const selectedCommand = matchingShortcut(selectedPing, browseShortcutIds);
   const allCommand = matchingShortcut(allPings, browseShortcutIds);
+  const updateCommand = matchingShortcut(update, browseShortcutIds);
 
   // Then
   expect(selectedCommand).toBe("pingSelected");
   expect(allCommand).toBe("pingAll");
+  expect(updateCommand).toBe("update");
+  expect(matchesShortcut(key("u", { ctrl: true }), "halfPage")).toBe(true);
   expect(matchesShortcut(key("q", { shift: true }), "quit")).toBe(true);
   expect(matchesShortcut(key("s"), "sortNext")).toBe(true);
   expect(matchesShortcut(key("y"), "reviewApply")).toBe(true);

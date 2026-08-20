@@ -20,6 +20,7 @@ export type KeyboardCommands = Record<BrowseShortcutId, () => void> & {
   saveForm: () => void;
   confirmReview: () => void;
   confirmDelete: () => void;
+  confirmUpdate: () => void;
 };
 
 export type KeyboardControllerProps = {
@@ -122,6 +123,17 @@ export function KeyboardController({
         key.preventDefault();
         commands.confirmDelete();
       } else if (scrollModal(key)) key.preventDefault();
+      return;
+    }
+
+    if (mode.kind === "update") {
+      if (matchesShortcut(key, "updateCancel")) {
+        key.preventDefault();
+        setMode({ kind: "browse" });
+      } else if (matchesShortcut(key, "updateConfirm")) {
+        key.preventDefault();
+        commands.confirmUpdate();
+      }
       return;
     }
 

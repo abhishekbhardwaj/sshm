@@ -37,7 +37,7 @@ export function createProgram(): Command {
     .version(version)
     .option("-c, --config <path>", "SSH config path")
     .action(async () => {
-      process.exitCode = await runTui(configPath());
+      process.exitCode = await runTui(configPath(), version);
     });
 
   const configPath = () =>

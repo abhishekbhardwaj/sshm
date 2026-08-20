@@ -71,6 +71,7 @@ const shortcuts = {
   edit: { bindings: [{ name: "e" }], key: "e" },
   metadata: { bindings: [{ name: "o" }], key: "o" },
   delete: { bindings: [{ name: "d" }], key: "d" },
+  update: { bindings: [{ name: "u" }], key: "u" },
   help: { bindings: [{ name: "h" }], key: "h" },
   quit: { bindings: [{ name: "q" }, { name: "escape" }], key: "q" },
   escape: escapeShortcut,
@@ -91,6 +92,8 @@ const shortcuts = {
   reviewBack: cancellationShortcut,
   deleteConfirm: confirmationShortcut,
   deleteCancel: cancellationShortcut,
+  updateConfirm: confirmationShortcut,
+  updateCancel: cancellationShortcut,
   inspectClose: {
     bindings: [{ name: "q" }, { name: "escape" }, { name: "i" }],
     key: "q / i / Esc",
@@ -126,6 +129,7 @@ export const browseShortcutIds = [
   "edit",
   "metadata",
   "delete",
+  "update",
   "help",
   "quit",
 ] as const satisfies readonly ShortcutId[];
@@ -176,6 +180,11 @@ export const shortcutHelpSections = [
     title: "System & mouse",
     compactTitle: "System",
     rows: [
+      {
+        shortcuts: ["update"],
+        description: "install available update",
+        compactDescription: "update",
+      },
       { shortcuts: ["help"], description: "help" },
       { shortcuts: ["quit"], description: "close/quit", compactDescription: "close" },
       { shortcuts: ["escape"], description: "back" },
